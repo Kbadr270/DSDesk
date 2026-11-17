@@ -65,7 +65,12 @@ def patch_literal(rel, old, new, expected=1):
 with open(BRAND_DIR / "brand.json", encoding="utf-8") as f:
     cfg = json.load(f)
 
+mode = (os.environ.get("BRAND_MODE") or cfg.get("mode", "support")).strip()
+if mode not in ("support", "customer"):
+    die("BRAND_MODE must be support or customer")
 app_name = cfg.get("app_name", "").strip()
+if mode == "customer":
+    app_name = cfg.get("customer_app_name", "").strip() or app_name
 company = cfg.get("company_name", "").strip()
 copyright_text = cfg.get("copyright", "").strip()
 description = cfg.get("description", "Remote Support").strip()
@@ -111,6 +116,25 @@ patch_regex(cfg_rs,
 patch_regex(cfg_rs,
             r'(pub static ref APP_NAME: RwLock<String> = RwLock::new\()"RustDesk"(\.to_owned\(\)\);)',
             lambda m: f'{m.group(1)}"{app_name}"{m.group(2)}')
+
+# ---------------- 1b. customer build: incoming only (no outgoing connections)
+if mode == "customer":
+    patch_regex(cfg_rs,
+                r'(pub fn is_incoming_only\(\) -> bool \{)\s*HARD_SETTINGS\s*\.read\(\)\s*\.unwrap\(\)\s*\.get\("conn-type"\)\s*\.map_or\(false, \|x\| x == \("incoming"\)\)\s*\}',
+                lambda m: m.group(1) + " true }", flags=re.S)
+    for fn, opt in (("is_disable_settings", "disable-settings"),
+                    ("is_disable_ab", "disable-ab"),
+                    ("is_disable_account", "disable-account")):
+        patch_literal(cfg_rs,
+                      f'pub fn {fn}() -> bool {{\n    is_some_hard_opton("{opt}")\n}}',
+                      f'pub fn {fn}() -> bool {{\n    true\n}}')
+    patch_regex("src/common.rs",
+                r'(pub fn get_builtin_option\(key: &str\) -> String \{)(\r?\n)',
+                lambda m: (m.group(1) + m.group(2) +
+                           '    if ["disable-change-id", "disable-change-permanent-password", '
+                           '"hide-help-cards"].contains(&key) {' + m.group(2) +
+                           '        return "Y".to_owned();' + m.group(2) + '    }' + m.group(2)))
+    print("customer mode: incoming-only, settings locked")
 
 # ----------------------------------------- 2. Windows file properties (.rc)
 rc = "flutter/windows/runner/Runner.rc"
