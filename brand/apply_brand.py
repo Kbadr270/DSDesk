@@ -217,6 +217,11 @@ for path in sorted((ROOT / "src" / "lang").glob("*.rs")):
         changed_files += 1
 print(f"patched translation files: {changed_files}")
 
+# ------------------ 6a. "Powered by" caption under the logo opens our site
+patch_literal("flutter/lib/common.dart",
+              "launchUrl(Uri.parse('https://rustdesk.com'));",
+              f"launchUrl(Uri.parse('{website}'));")
+
 # ------------------------------------------- 6b. brand colour (both builds)
 patch_regex("flutter/lib/common.dart",
             r"static const Color accent = Color\(0xFF0071FF\);",
