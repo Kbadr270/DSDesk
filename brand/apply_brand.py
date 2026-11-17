@@ -1,0 +1,232 @@
+#!/usr/bin/env python3
+"""
+Apply company branding to a RustDesk source tree.
+
+Run from the repository root (after the submodules are checked out):
+
+    python3 brand/apply_brand.py
+
+Settings come from brand/brand.json. The server address and public key can be
+supplied through the environment (BRAND_SERVER, BRAND_KEY) so they never have
+to be written into the repository. Every patch is checked: if the upstream
+code no longer looks the way this script expects, it stops with an error
+instead of silently producing an unbranded build.
+"""
+import json
+import os
+import pathlib
+import re
+import subprocess
+import sys
+
+ROOT = pathlib.Path.cwd()
+BRAND_DIR = pathlib.Path(__file__).resolve().parent
+ASSETS = BRAND_DIR / "assets"
+
+
+def die(message):
+    print(f"ERROR: {message}", file=sys.stderr)
+    sys.exit(1)
+
+
+def read(rel):
+    path = ROOT / rel
+    if not path.is_file():
+        die(f"file not found: {rel} (are the submodules checked out?)")
+    with open(path, encoding="utf-8", newline="") as f:
+        return f.read()
+
+
+def write(rel, text):
+    with open(ROOT / rel, "w", encoding="utf-8", newline="") as f:
+        f.write(text)
+
+
+def patch_regex(rel, pattern, repl, expected=1, flags=0):
+    """Replace regex matches; the number of matches must equal `expected`."""
+    text = read(rel)
+    new_text, count = re.subn(pattern, repl, text, flags=flags)
+    if count != expected:
+        die(f"{rel}: expected {expected} match(es) for {pattern!r}, found {count}")
+    write(rel, new_text)
+    print(f"patched {rel} ({count})")
+
+
+def patch_literal(rel, old, new, expected=1):
+    text = read(rel)
+    count = text.count(old)
+    if count != expected:
+        die(f"{rel}: expected {expected} occurrence(s) of {old!r}, found {count}")
+    write(rel, text.replace(old, new))
+    print(f"patched {rel} ({count})")
+
+
+# ---------------------------------------------------------------- settings
+with open(BRAND_DIR / "brand.json", encoding="utf-8") as f:
+    cfg = json.load(f)
+
+app_name = cfg.get("app_name", "").strip()
+company = cfg.get("company_name", "").strip()
+copyright_text = cfg.get("copyright", "").strip()
+description = cfg.get("description", "Remote Support").strip()
+website = cfg.get("website", "").strip()
+privacy_url = cfg.get("privacy_url", "").strip()
+server = (os.environ.get("BRAND_SERVER") or cfg.get("server", "")).strip()
+key = (os.environ.get("BRAND_KEY") or cfg.get("key", "")).strip()
+
+if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{1,30}", app_name):
+    die("app_name must be 2-31 ASCII letters/digits/_/- and start with a letter "
+        "(it is used for folder, service and registry names)")
+if app_name.lower() == "rustdesk":
+    die("choose an app_name different from RustDesk")
+if not server or re.search(r"[\s/\"'\\:]", server):
+    die("server is missing or invalid: use only the host name or IP, "
+        "with no port, scheme or spaces (set the RENDEZVOUS_SERVER secret)")
+if not re.fullmatch(r"[A-Za-z0-9+/]{42,44}={0,2}", key):
+    die("key is missing or is not a valid public key "
+        "(set the RS_PUB_KEY secret to the content of id_ed25519.pub)")
+for name, value in (("company_name", company), ("copyright", copyright_text),
+                    ("website", website), ("privacy_url", privacy_url)):
+    if not value:
+        die(f"{name} is empty in brand.json")
+    if '"' in value or "\\" in value or "'" in value or "$" in value or "\n" in value:
+        die(f"{name} must not contain quotes, backslashes, $ or line breaks")
+for name, value in (("website", website), ("privacy_url", privacy_url)):
+    if not value.startswith("https://"):
+        die(f"{name} must start with https://")
+
+
+def ascii_only(value):
+    return value.encode("ascii", "ignore").decode("ascii")
+
+
+# --------------------------------------------- 1. server, key and app name
+cfg_rs = "libs/hbb_common/src/config.rs"
+patch_regex(cfg_rs,
+            r'(pub const RENDEZVOUS_SERVERS: &\[&str\] = &\[)"[^"]*"(\];)',
+            lambda m: f'{m.group(1)}"{server}"{m.group(2)}')
+patch_regex(cfg_rs,
+            r'(pub const RS_PUB_KEY: &str = )"[^"]*";',
+            lambda m: f'{m.group(1)}"{key}";')
+patch_regex(cfg_rs,
+            r'(pub static ref APP_NAME: RwLock<String> = RwLock::new\()"RustDesk"(\.to_owned\(\)\);)',
+            lambda m: f'{m.group(1)}"{app_name}"{m.group(2)}')
+
+# ----------------------------------------- 2. Windows file properties (.rc)
+rc = "flutter/windows/runner/Runner.rc"
+rc_company = ascii_only(company)
+rc_copyright = ascii_only(copyright_text)
+rc_desc = ascii_only(f"{app_name} {description}")
+patch_regex(rc, r'(VALUE "CompanyName", )"[^"]*"( "\\0")',
+            lambda m: f'{m.group(1)}"{rc_company}"{m.group(2)}')
+patch_regex(rc, r'(VALUE "FileDescription", )"[^"]*"( "\\0")',
+            lambda m: f'{m.group(1)}"{rc_desc}"{m.group(2)}')
+patch_regex(rc, r'(VALUE "LegalCopyright", )"[^"]*"( "\\0")',
+            lambda m: f'{m.group(1)}"{rc_copyright}"{m.group(2)}')
+patch_regex(rc, r'(VALUE "ProductName", )"[^"]*"( "\\0")',
+            lambda m: f'{m.group(1)}"{app_name}"{m.group(2)}')
+
+# ---------------------------------------------------- 3. Windows runner name
+patch_literal("flutter/windows/runner/main.cpp",
+              'std::wstring app_name = L"RustDesk";',
+              f'std::wstring app_name = L"{app_name}";')
+
+# ------------------------------------------- 4. About page (links, company)
+about = "flutter/lib/desktop/pages/desktop_setting_page.dart"
+patch_literal(about, "launchUrlString('https://rustdesk.com/privacy.html')",
+              f"launchUrlString('{privacy_url}')")
+patch_literal(about, "launchUrlString('https://rustdesk.com')",
+              f"launchUrlString('{website}')")
+patch_literal(about, "Purslane Tech Pte. Ltd.", company)
+
+# --------------------------------- 5. never offer upstream RustDesk updates
+patch_regex("src/common.rs",
+            r"pub fn check_software_update\(\) \{(\r?\n)",
+            lambda m: ("pub fn check_software_update() {" + m.group(1) +
+                       "    if true {" + m.group(1) +
+                       "        return; // branded build: no upstream update prompts" + m.group(1) +
+                       "    }" + m.group(1)))
+
+# ------------------------------------- 6. product name in translated texts
+# Only the displayed value is changed, never the lookup key.
+entry = re.compile(
+    r'^(?P<head>\s*\(\s*"(?P<key>(?:[^"\\]|\\.)*)"\s*,\s*")'
+    r'(?P<val>(?:[^"\\]|\\.)*)'
+    r'(?P<tail>"\s*\)\s*,.*)$')
+word = re.compile(r"\bRustDesk\b")
+changed_files = 0
+for path in sorted((ROOT / "src" / "lang").glob("*.rs")):
+    if path.name in ("mod.rs", "template.rs"):
+        continue
+    out, touched = [], False
+    with open(path, encoding="utf-8", newline="") as f:
+        lines = f.read().split("\n")
+    for line in lines:
+        m = entry.match(line)
+        if m:
+            val = m.group("val")
+            if val == "" and word.search(m.group("key")) and path.name == "en.rs":
+                val = m.group("key")  # English falls back to the key itself
+            new_val = word.sub(app_name, val)
+            if new_val != m.group("val"):
+                line = m.group("head") + new_val + m.group("tail")
+                touched = True
+        out.append(line)
+    if touched:
+        with open(path, "w", encoding="utf-8", newline="") as f:
+            f.write("\n".join(out))
+        changed_files += 1
+print(f"patched translation files: {changed_files}")
+
+# ------------------------------------------------------------- 7. icons/logo
+
+
+def copy_file(src, dst_rel):
+    dst = ROOT / dst_rel
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.write_bytes(src.read_bytes())
+    print(f"copied {src.name} -> {dst_rel}")
+
+
+def ensure_pillow():
+    try:
+        import PIL  # noqa: F401
+    except ImportError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "pillow"])
+
+
+ico = ASSETS / "icon.ico"
+if ico.is_file():
+    for dst in ("res/icon.ico", "res/tray-icon.ico",
+                "flutter/windows/runner/resources/app_icon.ico"):
+        copy_file(ico, dst)
+else:
+    print("note: brand/assets/icon.ico not found, keeping the default icon")
+
+icon_png = ASSETS / "icon.png"
+if icon_png.is_file():
+    ensure_pillow()
+    from PIL import Image
+    img = Image.open(icon_png).convert("RGBA")
+    if img.width != img.height or img.width < 256:
+        die("brand/assets/icon.png must be square and at least 256x256")
+    copy_file(icon_png, "flutter/assets/icon.png")
+    copy_file(icon_png, "res/icon.png")
+    for size, name in ((32, "32x32.png"), (64, "64x64.png"),
+                       (128, "128x128.png"), (256, "128x128@2x.png")):
+        img.resize((size, size), Image.LANCZOS).save(ROOT / "res" / name)
+        print(f"generated res/{name}")
+else:
+    print("note: brand/assets/icon.png not found, keeping the default picture")
+
+logo = ASSETS / "logo.png"
+if logo.is_file():
+    copy_file(logo, "flutter/assets/logo.png")
+    copy_file(ASSETS / "logo_light.png" if (ASSETS / "logo_light.png").is_file() else logo,
+              "flutter/assets/logo_light.png")
+    copy_file(ASSETS / "logo_dark.png" if (ASSETS / "logo_dark.png").is_file() else logo,
+              "flutter/assets/logo_dark.png")
+else:
+    print("note: brand/assets/logo.png not found, no company logo added")
+
+print("branding applied")
