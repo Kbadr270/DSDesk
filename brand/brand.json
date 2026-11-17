@@ -1,10 +1,10 @@
 {
   "app_name": "DastyarDesk",
-  "company_name": "Your Company Ltd.",
-  "copyright": "Copyright (c) 2026 Your Company Ltd. All rights reserved.",
-  "description": "Remote Support",
-  "website": "https://example.com",
-  "privacy_url": "https://example.com/privacy",
+  "company_name": "داده پرداز دستیار",
+  "copyright": "Copyright (c) 2026-2027 Dastyar D.P. All rights reserved.",
+  "description": "برای ارائه خدمات پشتیبانی نرم افزار به مشتریان محترم شرکت داده پرداز دستیار",
+  "website": "https://dastyar.com",
+  "privacy_url": "https://dastyar.com",
   "server": "",
   "key": ""
 }
