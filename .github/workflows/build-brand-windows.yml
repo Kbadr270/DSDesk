@@ -230,6 +230,9 @@ jobs:
         mv ./target/release/rustdesk-portable-packer.exe ./SignOutput/rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}.exe
 
         '
+    - name: Rename exe
+      shell: bash
+      run: mv ./SignOutput/rustdesk-*.exe "./SignOutput/${BRAND_APP_NAME}.exe"
     - name: Upload branded exe
       uses: actions/upload-artifact@v4
       with:
