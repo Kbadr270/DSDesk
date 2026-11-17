@@ -241,6 +241,11 @@ if mode == "customer":
     dst = ROOT / "flutter/lib/desktop/widgets/brand_footer.dart"
     dst.parent.mkdir(parents=True, exist_ok=True)
     dst.write_text(tpl, encoding="utf-8", newline="")
+    # customer build: the settings page can never be opened
+    patch_literal("flutter/lib/desktop/pages/desktop_tab_page.dart",
+                  "{SettingsTabKey initialPage = SettingsTabKey.general}) {\n    try {",
+                  "{SettingsTabKey initialPage = SettingsTabKey.general}) {\n"
+                  "    if (bind.isIncomingOnly()) {\n      return;\n    }\n    try {")
     home = "flutter/lib/desktop/pages/desktop_home_page.dart"
     patch_literal(home, "import '../widgets/button.dart';",
                   "import '../widgets/button.dart';\nimport '../widgets/brand_footer.dart';")
