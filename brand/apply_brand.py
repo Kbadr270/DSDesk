@@ -76,6 +76,10 @@ copyright_text = cfg.get("copyright", "").strip()
 description = cfg.get("description", "Remote Support").strip()
 website = cfg.get("website", "").strip()
 privacy_url = cfg.get("privacy_url", "").strip()
+ticket_url = cfg.get("ticket_url", "").strip()
+company_fa = cfg.get("company_name_fa", "").strip()
+description_fa = cfg.get("description_fa", "").strip()
+description_en = cfg.get("description_en", "").strip()
 server = (os.environ.get("BRAND_SERVER") or cfg.get("server", "")).strip()
 key = (os.environ.get("BRAND_KEY") or cfg.get("key", "")).strip()
 
@@ -96,9 +100,17 @@ for name, value in (("company_name", company), ("copyright", copyright_text),
         die(f"{name} is empty in brand.json")
     if '"' in value or "\\" in value or "'" in value or "$" in value or "\n" in value:
         die(f"{name} must not contain quotes, backslashes, $ or line breaks")
-for name, value in (("website", website), ("privacy_url", privacy_url)):
-    if not value.startswith("https://"):
-        die(f"{name} must start with https://")
+for name, value in (("website", website), ("privacy_url", privacy_url),
+                    ("ticket_url", ticket_url)):
+    if not value.startswith(("https://", "http://")):
+        die(f"{name} must start with http:// or https://")
+for name, value in (("company_name_fa", company_fa),
+                    ("description_fa", description_fa),
+                    ("description_en", description_en)):
+    if not value:
+        die(f"{name} is empty in brand.json")
+    if any(c in value for c in "'\"\\$\n"):
+        die(f"{name} must not contain quotes, backslashes, $ or line breaks")
 
 
 def ascii_only(value):
@@ -202,6 +214,37 @@ for path in sorted((ROOT / "src" / "lang").glob("*.rs")):
         changed_files += 1
 print(f"patched translation files: {changed_files}")
 
+# ------------------------------------------- 6b. brand colour (both builds)
+patch_regex("flutter/lib/common.dart",
+            r"static const Color accent = Color\(0xFF0071FF\);",
+            "static const Color accent = Color(0xFFF39F1F);")
+patch_regex("flutter/lib/common.dart",
+            r"static const Color accent50 = Color\(0x770071FF\);",
+            "static const Color accent50 = Color(0x77F39F1F);")
+patch_regex("flutter/lib/common.dart",
+            r"static const Color accent80 = Color\(0xAA0071FF\);",
+            "static const Color accent80 = Color(0xAAF39F1F);")
+
+# ----------------------------- 6c. customer build: branded footer widget
+if mode == "customer":
+    tpl = (BRAND_DIR / "dart" / "brand_footer.dart").read_text(encoding="utf-8")
+    for token, value in (("@@SITE@@", website), ("@@TICKET@@", ticket_url),
+                         ("@@COMPANY_FA@@", company_fa), ("@@COMPANY_EN@@", company),
+                         ("@@DESC_FA@@", description_fa), ("@@DESC_EN@@", description_en),
+                         ("@@COPYRIGHT@@", copyright_text)):
+        if token not in tpl:
+            die(f"brand_footer.dart lacks {token}")
+        tpl = tpl.replace(token, value)
+    dst = ROOT / "flutter/lib/desktop/widgets/brand_footer.dart"
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.write_text(tpl, encoding="utf-8", newline="")
+    home = "flutter/lib/desktop/pages/desktop_home_page.dart"
+    patch_literal(home, "import '../widgets/button.dart';",
+                  "import '../widgets/button.dart';\nimport '../widgets/brand_footer.dart';")
+    patch_literal(home, "      if (!isOutgoingOnly) buildPasswordBoard(context),",
+                  "      if (!isOutgoingOnly) buildPasswordBoard(context),\n"
+                  "      if (isIncomingOnly) const BrandFooter(),")
+
 # ------------------------------------------------------------- 7. icons/logo
 
 
@@ -253,4 +296,8 @@ if logo.is_file():
 else:
     print("note: brand/assets/logo.png not found, no company logo added")
 
+env_file = os.environ.get("GITHUB_ENV")
+if env_file:
+    with open(env_file, "a", encoding="utf-8") as f:
+        f.write(f"BRAND_APP_NAME={app_name}\n")
 print("branding applied")

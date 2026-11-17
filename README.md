@@ -1,182 +1,51 @@
-<p align="center">
-  <img src="res/logo-header.svg" alt="RustDesk - Your remote desktop"><br>
-  <a href="#raw-steps-to-build">Build</a> •
-  <a href="#how-to-build-with-docker">Docker</a> •
-  <a href="#file-structure">Structure</a> •
-  <a href="#screenshots">Screenshots</a><br>
-  [<a href="docs/README-UA.md">Українська</a>] | [<a href="docs/README-CS.md">česky</a>] | [<a href="docs/README-ZH.md">中文</a>] | [<a href="docs/README-HU.md">Magyar</a>] | [<a href="docs/README-ES.md">Español</a>] | [<a href="docs/README-FA.md">فارسی</a>] | [<a href="docs/README-FR.md">Français</a>] | [<a href="docs/README-DE.md">Deutsch</a>] | [<a href="docs/README-PL.md">Polski</a>] | [<a href="docs/README-ID.md">Indonesian</a>] | [<a href="docs/README-FI.md">Suomi</a>] | [<a href="docs/README-ML.md">മലയാളം</a>] | [<a href="docs/README-JP.md">日本語</a>] | [<a href="docs/README-NL.md">Nederlands</a>] | [<a href="docs/README-IT.md">Italiano</a>] | [<a href="docs/README-RU.md">Русский</a>] | [<a href="docs/README-PTPT.md">Português (Portugal)</a>] | [<a href="docs/README-PTBR.md">Português (Brasil)</a>] | [<a href="docs/README-EO.md">Esperanto</a>] | [<a href="docs/README-KR.md">한국어</a>] | [<a href="docs/README-AR.md">العربي</a>] | [<a href="docs/README-VN.md">Tiếng Việt</a>] | [<a href="docs/README-DA.md">Dansk</a>] | [<a href="docs/README-GR.md">Ελληνικά</a>] | [<a href="docs/README-TR.md">Türkçe</a>] | [<a href="docs/README-NO.md">Norsk</a>] | [<a href="docs/README-RO.md">Română</a>] | [<a href="docs/README-KA.md">ქართული</a>]<br>
-  <b>We need your help to translate this README, <a href="https://github.com/rustdesk/rustdesk/tree/master/src/lang">RustDesk UI</a> and <a href="https://github.com/rustdesk/doc.rustdesk.com">RustDesk Doc</a> to your native language</b>
-</p>
+# کیت ساخت RustDesk برندشده (مستقل، بدون نیاز به نصب)
 
-> [!Caution]
-> **Misuse Disclaimer:** <br>
-> The developers of RustDesk do not condone or support any unethical or illegal use of this software. Misuse, such as unauthorized access, control or invasion of privacy, is strictly against our guidelines. The authors are not responsible for any misuse of the application.
+خروجی: یک فایل `exe` تکی با نام، لوگو و مشخصات شرکت شما، که از قبل به سرور و کلید شما وصل است.
 
+## مراحل
 
-Chat with us: [Discord](https://discord.gg/nDceKgxnkV) | [Twitter](https://twitter.com/rustdesk) | [Reddit](https://www.reddit.com/r/rustdesk) | [YouTube](https://www.youtube.com/@rustdesk)
+1. در GitHub مخزن رسمی `rustdesk/rustdesk` را **Fork** کنید (ترجیحاً Private نگه دارید).
+   برای تطابق با تست ما، نسخه `1.5.3` (commit `54416dc`) را بسازید؛ نسخه‌های جدیدتر ممکن است نیاز به تنظیم دوباره داشته باشند.
+2. محتویات این کیت را در ریشه فورک آپلود کنید:
+   پوشه `brand/` و فایل `.github/workflows/build-brand-windows.yml`.
+3. پوشه `brand/assets/` (شامل آیکن و لوگوی آماده شرکت دستیار) و پوشه `brand/dart/` را آپلود کنید.
+4. فایل `brand/brand.json` را ویرایش کنید:
+   `app_name` (نام نسخه پشتیبان) و `customer_app_name` (نام نسخه مشتری، مثل `DastyarHelp`؛ فقط حروف انگلیسی)، `company_name`، `copyright`، `website`، `privacy_url`.
+   در مقادیر از علامت نقل‌قول، `\` و `$` استفاده نکنید.
+5. در مخزن: Settings ← Secrets and variables ← Actions ← دو Secret بسازید:
+   - `RENDEZVOUS_SERVER` : فقط آدرس یا IP سرور شما، بدون پورت
+   - `RS_PUB_KEY` : محتوای فایل `id_ed25519.pub` سرور
+6. تب Actions ← `Build branded Windows client` ← Run workflow. در فیلد `mode` یکی را انتخاب کنید:
+   - `support`: نسخه کامل برای شما (اتصال به مشتری)
+   - `customer`: نسخه مشتری (فقط نمایش ID و رمز، بدون امکان اتصال به جای دیگر)
+   برای ساخت هر دو، workflow را دو بار اجرا کنید.
+7. پس از اتمام (حدود ۴۰ تا ۶۰ دقیقه یا بیشتر) از بخش Artifacts فایل `branded-windows-exe-support` یا `branded-windows-exe-customer` را دانلود کنید.
 
-[![RustDesk Server Pro](https://img.shields.io/badge/RustDesk%20Server%20Pro-Advanced%20Features-blue)](https://rustdesk.com/pricing.html)
+اگر فورک شما نسخه دیگری از RustDesk دارد، فایل workflow را دوباره بسازید:
+`python3 make_workflow.py .github/workflows/flutter-build.yml .github/workflows/build-brand-windows.yml`
 
-Yet another remote desktop solution, written in Rust. Works out of the box with no configuration required. You have full control of your data, with no concerns about security. You can use our rendezvous/relay server, [set up your own](https://rustdesk.com/server), or [write your own rendezvous/relay server](https://github.com/rustdesk/rustdesk-server-demo).
+## اسکریپت چه چیزهایی را تغییر می‌دهد
+- آدرس سرور و کلید عمومی پیش‌فرض (داخل کد)
+- نام برنامه، نام شرکت، کپی‌رایت، توضیح فایل (Properties ویندوز)
+- لینک‌ها و نام شرکت در صفحه About
+- متن‌های ترجمه‌شده (نام RustDesk ← نام شما)
+- آیکن‌ها و لوگو
+- غیرفعال‌سازی پیشنهاد به‌روزرسانی از سرورهای RustDesk
 
-![image](https://user-images.githubusercontent.com/71636191/171661982-430285f0-2e12-4b1d-9957-4a58e375304d.png)
+اگر کد RustDesk تغییر کرده باشد و الگویی پیدا نشود، اسکریپت با پیام خطا متوقف می‌شود (بدون ساخت نسخه ناقص).
 
-RustDesk welcomes contribution from everyone. See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for help getting started.
+## نکات مهم
+- **صحت‌سنجی:** اسکریپت‌ها روی کپی سورس تست شدند، ولی ساخت کامل روی GitHub Actions اجرا نشده است. اگر خطایی دیدید لاگ را بفرستید.
+- **مجوز AGPL-3.0:** در صورت توزیع نسخه تغییر‌یافته به مشتریان، باید سورس تغییرات را در اختیار آن‌ها قرار دهید (همین فورک کافی است).
+- **نام تجاری:** نام و لوگوی RustDesk را در `app_name` و لوگو استفاده نکنید.
+- **امضا:** فایل بدون امضای دیجیتال است و ممکن است SmartScreen هشدار بدهد.
+- **محدودیت نسخه Portable:** نصب سرویس و دسترسی بدون نظارت (Unattended) و عبور از UAC فقط با نصب کامل در دسترس است. برای پشتیبانی لحظه‌ای کافی است.
+- **هزینه:** مخزن Private از دقیقه‌های Actions مصرف می‌کند (ویندوز ۲ برابر). مخزن Public فایل `brand.json` را نمایش می‌دهد؛ سرور و کلید در Secret می‌مانند.
+- برنامه `SupportConsole` را می‌توانید در تنظیمات به این exe اشاره دهید (`RustDeskPath`)، و در `CustomerHelper` دیگر مرحله نصب لازم نیست.
 
-[**FAQ**](https://github.com/rustdesk/rustdesk/wiki/FAQ)
+- نسخه مشتری: دکمه و صفحه تنظیمات کاملاً غیرفعال است (تغییر سرور، ID، رمز دائمی، حساب کاربری)، اتصال خروجی ندارد و فقط ID و رمز یکبارمصرف را نشان می‌دهد.
 
-[**BINARY DOWNLOAD**](https://github.com/rustdesk/rustdesk/releases)
-
-[**NIGHTLY BUILD**](https://github.com/rustdesk/rustdesk/releases/tag/nightly)
-
-[<img src="https://f-droid.org/badge/get-it-on.png"
-    alt="Get it on F-Droid"
-    height="80">](https://f-droid.org/en/packages/com.carriez.flutter_hbb)
-[<img src="https://flathub.org/api/badge?svg&locale=en"
-    alt="Get it on Flathub"
-    height="80">](https://flathub.org/apps/com.rustdesk.RustDesk)
-
-## Dependencies
-
-Desktop versions use Flutter or Sciter (deprecated) for GUI. This tutorial is for Sciter only, since it is easier and more friendly to start. Check out our [CI](https://github.com/rustdesk/rustdesk/blob/master/.github/workflows/flutter-build.yml) for building the Flutter version.
-
-Please download Sciter dynamic library yourself.
-
-[Windows](https://raw.githubusercontent.com/c-smile/sciter-sdk/master/bin.win/x64/sciter.dll) |
-[Linux](https://raw.githubusercontent.com/c-smile/sciter-sdk/master/bin.lnx/x64/libsciter-gtk.so) |
-[macOS](https://raw.githubusercontent.com/c-smile/sciter-sdk/master/bin.osx/libsciter.dylib)
-
-## Raw Steps to build
-
-- Prepare your Rust development env and C++ build env
-
-- Install [vcpkg](https://github.com/microsoft/vcpkg), and set `VCPKG_ROOT` env variable correctly
-
-  - Windows: vcpkg install libvpx:x64-windows-static libyuv:x64-windows-static opus:x64-windows-static aom:x64-windows-static
-  - Linux/macOS: vcpkg install libvpx libyuv opus aom
-
-- run `cargo run`
-
-## [Build](https://rustdesk.com/docs/en/dev/build/)
-
-## How to Build on Linux
-
-### Ubuntu 18 (Debian 10)
-
-```sh
-sudo apt install -y zip g++ gcc git curl wget nasm yasm libgtk-3-dev clang libxcb-randr0-dev libxdo-dev \
-        libxfixes-dev libxcb-shape0-dev libxcb-xfixes0-dev libasound2-dev libpulse-dev cmake make \
-        libclang-dev ninja-build libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
-```
-
-### openSUSE Tumbleweed
-
-```sh
-sudo zypper install gcc-c++ git curl wget nasm yasm gcc gtk3-devel clang libxcb-devel libXfixes-devel cmake alsa-lib-devel gstreamer-devel gstreamer-plugins-base-devel xdotool-devel
-```
-
-### Fedora 28 (CentOS 8)
-
-```sh
-sudo yum -y install gcc-c++ git curl wget nasm yasm gcc gtk3-devel clang libxcb-devel libxdo-devel libXfixes-devel pulseaudio-libs-devel cmake alsa-lib-devel gstreamer1-devel gstreamer1-plugins-base-devel
-```
-
-### Arch (Manjaro)
-
-```sh
-sudo pacman -Syu --needed unzip git cmake gcc curl wget yasm nasm zip make pkg-config clang gtk3 xdotool libxcb libxfixes alsa-lib pipewire
-```
-
-### Install vcpkg
-
-```sh
-git clone https://github.com/microsoft/vcpkg
-cd vcpkg
-git checkout 2023.04.15
-cd ..
-vcpkg/bootstrap-vcpkg.sh
-export VCPKG_ROOT=$HOME/vcpkg
-vcpkg/vcpkg install libvpx libyuv opus aom
-```
-
-### Fix libvpx (For Fedora)
-
-```sh
-cd vcpkg/buildtrees/libvpx/src
-cd *
-./configure
-sed -i 's/CFLAGS+=-I/CFLAGS+=-fPIC -I/g' Makefile
-sed -i 's/CXXFLAGS+=-I/CXXFLAGS+=-fPIC -I/g' Makefile
-make
-cp libvpx.a $HOME/vcpkg/installed/x64-linux/lib/
-cd
-```
-
-### Build
-
-```sh
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source $HOME/.cargo/env
-git clone --recurse-submodules https://github.com/rustdesk/rustdesk
-cd rustdesk
-mkdir -p target/debug
-wget https://raw.githubusercontent.com/c-smile/sciter-sdk/master/bin.lnx/x64/libsciter-gtk.so
-mv libsciter-gtk.so target/debug
-VCPKG_ROOT=$HOME/vcpkg cargo run
-```
-
-## How to build with Docker
-
-Begin by cloning the repository and building the Docker container:
-
-```sh
-git clone https://github.com/rustdesk/rustdesk
-cd rustdesk
-git submodule update --init --recursive
-docker build -t "rustdesk-builder" .
-```
-
-Then, each time you need to build the application, run the following command:
-
-```sh
-docker run --rm -it -v $PWD:/home/user/rustdesk -v rustdesk-git-cache:/home/user/.cargo/git -v rustdesk-registry-cache:/home/user/.cargo/registry -e PUID="$(id -u)" -e PGID="$(id -g)" rustdesk-builder
-```
-
-Note that the first build may take longer before dependencies are cached, subsequent builds will be faster. Additionally, if you need to specify different arguments to the build command, you may do so at the end of the command in the `<OPTIONAL-ARGS>` position. For instance, if you wanted to build an optimized release version, you would run the command above followed by `--release`. The resulting executable will be available in the target folder on your system, and can be run with:
-
-```sh
-target/debug/rustdesk
-```
-
-Or, if you're running a release executable:
-
-```sh
-target/release/rustdesk
-```
-
-Please ensure that you run these commands from the root of the RustDesk repository, or the application may not find the required resources. Also note that other cargo subcommands such as `install` or `run` are not currently supported via this method as they would install or run the program inside the container instead of the host.
-
-## File Structure
-
-- **[libs/hbb_common](https://github.com/rustdesk/rustdesk/tree/master/libs/hbb_common)**: video codec, config, tcp/udp wrapper, and some other utility functions shared with the server
-- **[libs/base](https://github.com/rustdesk/rustdesk/tree/master/libs/base)**: protobuf, fs functions for file transfer, keyboard and platform code used only by this app
-- **[libs/scrap](https://github.com/rustdesk/rustdesk/tree/master/libs/scrap)**: screen capture
-- **[libs/enigo](https://github.com/rustdesk/rustdesk/tree/master/libs/enigo)**: platform specific keyboard/mouse control
-- **[libs/clipboard](https://github.com/rustdesk/rustdesk/tree/master/libs/clipboard)**: file copy and paste implementation for Windows, Linux, macOS.
-- **[src/ui](https://github.com/rustdesk/rustdesk/tree/master/src/ui)**: obsolete Sciter UI (deprecated)
-- **[src/server](https://github.com/rustdesk/rustdesk/tree/master/src/server)**: audio/clipboard/input/video services, and network connections
-- **[src/client.rs](https://github.com/rustdesk/rustdesk/tree/master/src/client.rs)**: start a peer connection
-- **[src/rendezvous_mediator.rs](https://github.com/rustdesk/rustdesk/tree/master/src/rendezvous_mediator.rs)**: Communicate with [rustdesk-server](https://github.com/rustdesk/rustdesk-server), wait for remote direct (TCP hole punching) or relayed connection
-- **[src/platform](https://github.com/rustdesk/rustdesk/tree/master/src/platform)**: platform specific code
-- **[flutter](https://github.com/rustdesk/rustdesk/tree/master/flutter)**: Flutter code for desktop and mobile
-
-## Screenshots
-
-![Connection Manager](https://github.com/rustdesk/rustdesk/assets/28412477/db82d4e7-c4bc-4823-8e6f-6af7eadf7651)
-
-![Connected to a Windows PC](https://github.com/rustdesk/rustdesk/assets/28412477/9baa91e9-3362-4d06-aa1a-7518edcbd7ea)
-
-![File Transfer](https://github.com/rustdesk/rustdesk/assets/28412477/39511ad3-aa9a-4f8c-8947-1cce286a46ad)
-
-![TCP Tunneling](https://github.com/rustdesk/rustdesk/assets/28412477/78e8708f-e87e-4570-8373-1360033ea6c5)
-
+- نسخه مشتری دارای نوار برند در صفحه اصلی است: لینک تیکت و سایت، پنجره «درباره» و تعویض زبان فارسی/English. رنگ اصلی برنامه (هر دو نسخه) نارنجی لوگوی شرکت است.
+- نام فایل خروجی همان نام برنامه است، مثل `DastyarHelp.exe` و `DastyarDesk.exe`.
+- فایل‌های `brand.json` برای متن‌های فارسی و انگلیسی: `company_name_fa`، `description_fa`، `description_en`، `ticket_url`.
+- بخش ظاهری نسخه مشتری (کد Flutter) فقط بررسی ظاهری شده و کامپایل نشده است؛ اگر ساخت در این قسمت خطا داد، لاگ را بفرستید.

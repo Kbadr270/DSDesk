@@ -84,6 +84,11 @@ for step in bw["steps"]:
         })
         branded = True
     if name == "build self-extracted executable":
+        steps.append({
+            "name": "Rename exe",
+            "shell": "bash",
+            "run": 'mv ./SignOutput/rustdesk-*.exe "./SignOutput/${BRAND_APP_NAME}.exe"',
+        })
         packed = True
 if not branded:
     sys.exit("no 'Checkout source code' step found")
