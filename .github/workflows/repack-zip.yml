@@ -1,0 +1,52 @@
+# Repackage an already-built exe into a password-protected zip (about 1 minute),
+# so browsers cannot scan/block it. Does not rebuild anything.
+name: Repack exe as protected zip
+on:
+  workflow_dispatch:
+    inputs:
+      run-id:
+        description: "Run number ID of the finished build (the number in its URL .../actions/runs/<ID>)"
+        required: true
+        type: string
+      artifact-name:
+        description: "Artifact name of that build, e.g. branded-windows-exe-customer"
+        required: true
+        default: branded-windows-exe-customer
+        type: string
+      password:
+        description: "Zip password"
+        required: true
+        default: dastyar
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  repack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download built artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          run-id: ${{ inputs.run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: dl
+      - name: Create password-protected zip
+        env:
+          ZIP_PASSWORD: ${{ inputs.password }}
+        run: |
+          set -e
+          ls -la dl
+          mkdir -p out
+          for f in dl/*.exe; do
+            n=$(basename "$f" .exe)
+            zip -j -P "$ZIP_PASSWORD" "out/$n.zip" "$f"
+          done
+          ls -la out
+      - name: Upload protected zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}-protected
+          path: out/*.zip
+          if-no-files-found: error
