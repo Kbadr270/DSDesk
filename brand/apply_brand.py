@@ -54,6 +54,9 @@ def patch_regex(rel, pattern, repl, expected=1, flags=0):
 
 def patch_literal(rel, old, new, expected=1):
     text = read(rel)
+    if "\r\n" in text:  # Windows runners check files out with CRLF
+        old = old.replace("\r\n", "\n").replace("\n", "\r\n")
+        new = new.replace("\r\n", "\n").replace("\n", "\r\n")
     count = text.count(old)
     if count != expected:
         die(f"{rel}: expected {expected} occurrence(s) of {old!r}, found {count}")
