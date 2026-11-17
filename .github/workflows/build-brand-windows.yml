@@ -12,6 +12,13 @@ name: Build branded Windows client
       publish-update-metadata:
         type: boolean
         default: false
+      mode:
+        type: choice
+        options:
+        - support
+        - customer
+        default: support
+        description: support = full client, customer = ID/password only
 permissions:
   contents: write
 env:
@@ -90,6 +97,7 @@ jobs:
       env:
         BRAND_SERVER: ${{ secrets.RENDEZVOUS_SERVER }}
         BRAND_KEY: ${{ secrets.RS_PUB_KEY }}
+        BRAND_MODE: ${{ inputs.mode }}
       run: python3 brand/apply_brand.py
     - name: Restore bridge files
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
@@ -225,6 +233,6 @@ jobs:
     - name: Upload branded exe
       uses: actions/upload-artifact@v4
       with:
-        name: branded-windows-exe
+        name: branded-windows-exe-${{ inputs.mode }}
         path: ./SignOutput/*.exe
         if-no-files-found: error
