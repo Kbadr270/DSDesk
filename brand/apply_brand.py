@@ -83,6 +83,10 @@ ticket_url = cfg.get("ticket_url", "").strip()
 company_fa = cfg.get("company_name_fa", "").strip()
 description_fa = cfg.get("description_fa", "").strip()
 description_en = cfg.get("description_en", "").strip()
+app_version = cfg.get("app_version", "1.0.0").strip()
+update_url = cfg.get("update_url", "").strip()
+developer = cfg.get("developer", "").strip()
+developer_email = cfg.get("developer_email", "").strip()
 server = (os.environ.get("BRAND_SERVER") or cfg.get("server", "")).strip()
 key = (os.environ.get("BRAND_KEY") or cfg.get("key", "")).strip()
 
@@ -116,6 +120,16 @@ for name, value in (("company_name_fa", company_fa),
         die(f"{name} must not contain quotes, backslashes, $ or line breaks")
 
 
+if not re.fullmatch(r"[0-9]+(\.[0-9]+){1,3}", app_version):
+    die("app_version must look like 1.0.0")
+if update_url and not update_url.startswith(("https://", "http://")):
+    die("update_url must be empty or start with http:// or https://")
+for name, value in (("update_url", update_url), ("developer", developer),
+                    ("developer_email", developer_email)):
+    if any(c in value for c in "'\"\\$\n"):
+        die(f"{name} must not contain quotes, backslashes, $ or line breaks")
+
+
 def ascii_only(value):
     return value.encode("ascii", "ignore").decode("ascii")
 
@@ -137,8 +151,7 @@ if mode == "customer":
     patch_regex(cfg_rs,
                 r'(pub fn is_incoming_only\(\) -> bool \{)\s*HARD_SETTINGS\s*\.read\(\)\s*\.unwrap\(\)\s*\.get\("conn-type"\)\s*\.map_or\(false, \|x\| x == \("incoming"\)\)\s*\}',
                 lambda m: m.group(1) + " true }", flags=re.S)
-    for fn, opt in (("is_disable_settings", "disable-settings"),
-                    ("is_disable_ab", "disable-ab"),
+    for fn, opt in (("is_disable_ab", "disable-ab"),
                     ("is_disable_account", "disable-account")):
         patch_literal(cfg_rs,
                       f'pub fn {fn}() -> bool {{\n    is_some_hard_opton("{opt}")\n}}',
@@ -146,10 +159,12 @@ if mode == "customer":
     patch_regex("src/common.rs",
                 r'(pub fn get_builtin_option\(key: &str\) -> String \{)(\r?\n)',
                 lambda m: (m.group(1) + m.group(2) +
-                           '    if ["disable-change-id", "disable-change-permanent-password", '
-                           '"hide-help-cards"].contains(&key) {' + m.group(2) +
+                           '    if ["disable-change-id", "hide-help-cards", '
+                           '"hide-network-settings", "hide-server-settings", '
+                           '"hide-proxy-settings", "hide-websocket-settings", '
+                           '"hide-remote-printer-settings"].contains(&key) {' + m.group(2) +
                            '        return "Y".to_owned();' + m.group(2) + '    }' + m.group(2)))
-    print("customer mode: incoming-only, settings locked")
+    print("customer mode: incoming-only, network/server settings hidden")
 
 # ----------------------------------------- 2. Windows file properties (.rc)
 rc = "flutter/windows/runner/Runner.rc"
@@ -233,24 +248,46 @@ patch_regex("flutter/lib/common.dart",
             r"static const Color accent80 = Color\(0xAA0071FF\);",
             "static const Color accent80 = Color(0xAAF39F1F);")
 
-# ----------------------------- 6c. customer build: branded footer widget
+# ----------------------------- 6c. branded widgets (both builds) + footer
+tpl = (BRAND_DIR / "dart" / "brand_footer.dart").read_text(encoding="utf-8")
+for token, value in (("@@SITE@@", website), ("@@TICKET@@", ticket_url),
+                     ("@@COMPANY_FA@@", company_fa), ("@@COMPANY_EN@@", company),
+                     ("@@DESC_FA@@", description_fa), ("@@DESC_EN@@", description_en),
+                     ("@@COPYRIGHT@@", copyright_text),
+                     ("@@APP_VERSION@@", app_version),
+                     ("@@DEVELOPER@@", developer), ("@@DEV_EMAIL@@", developer_email),
+                     ("@@UPDATE_URL@@", update_url)):
+    if token not in tpl:
+        die(f"brand_footer.dart lacks {token}")
+    tpl = tpl.replace(token, value)
+dst = ROOT / "flutter/lib/desktop/widgets/brand_footer.dart"
+dst.parent.mkdir(parents=True, exist_ok=True)
+dst.write_text(tpl, encoding="utf-8", newline="")
+
+
+def add_import(rel, line):
+    text = read(rel)
+    nl = "\r\n" if "\r\n" in text else "\n"
+    new_text, count = re.subn(r"^import ", line + nl + "import ", text,
+                              count=1, flags=re.M)
+    if count != 1:
+        die(f"{rel}: no import line found")
+    write(rel, new_text)
+    print(f"patched {rel} (import)")
+
+
+# About page of the settings: own slogan (red company word), own version, colour
+setting = "flutter/lib/desktop/pages/desktop_setting_page.dart"
+add_import(setting, "import 'package:flutter_hbb/desktop/widgets/brand_footer.dart';")
+patch_regex(setting,
+            r"Text\(\s*translate\('Slogan_tip'\),\s*style: TextStyle\(\s*fontWeight: FontWeight\.w800,\s*color: Colors\.white\),?\s*\)",
+            "const BrandSlogan()")
+patch_literal(setting, "final version = data['version'].toString();",
+              "const version = brandVersion;")
+patch_literal(setting, "decoration: const BoxDecoration(color: Color(0xFF2c8cff)),",
+              "decoration: const BoxDecoration(color: Color(0xFF22263A)),")
+
 if mode == "customer":
-    tpl = (BRAND_DIR / "dart" / "brand_footer.dart").read_text(encoding="utf-8")
-    for token, value in (("@@SITE@@", website), ("@@TICKET@@", ticket_url),
-                         ("@@COMPANY_FA@@", company_fa), ("@@COMPANY_EN@@", company),
-                         ("@@DESC_FA@@", description_fa), ("@@DESC_EN@@", description_en),
-                         ("@@COPYRIGHT@@", copyright_text)):
-        if token not in tpl:
-            die(f"brand_footer.dart lacks {token}")
-        tpl = tpl.replace(token, value)
-    dst = ROOT / "flutter/lib/desktop/widgets/brand_footer.dart"
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    dst.write_text(tpl, encoding="utf-8", newline="")
-    # customer build: the settings page can never be opened
-    patch_literal("flutter/lib/desktop/pages/desktop_tab_page.dart",
-                  "{SettingsTabKey initialPage = SettingsTabKey.general}) {\n    try {",
-                  "{SettingsTabKey initialPage = SettingsTabKey.general}) {\n"
-                  "    if (bind.isIncomingOnly()) {\n      return;\n    }\n    try {")
     home = "flutter/lib/desktop/pages/desktop_home_page.dart"
     patch_literal(home, "import '../widgets/button.dart';",
                   "import '../widgets/button.dart';\nimport '../widgets/brand_footer.dart';")

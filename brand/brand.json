@@ -2,8 +2,8 @@
   "app_name": "DastyarDesk",
   "customer_app_name": "DastyarHelp",
   "company_name": "Dastyar Data Processing Co.",
-  "copyright": "Copyright (c) 2026 Dastyar Data Processing Co. All rights reserved.",
-  "description": "Remote Support",
+  "copyright": "Copyright (c) 2026-2027 Dastyar Data Processing Co. All rights reserved.",
+  "description": "اتصال اینترنتی پشتیبانی نرم افزار دستیار",
   "website": "http://dastyar.com",
   "privacy_url": "http://dastyar.com",
   "server": "",
@@ -11,5 +11,9 @@
   "company_name_fa": "شرکت داده پرداز دستیار",
   "description_fa": "این برنامه جهت ارائه خدمات پشتیبانی به مشتریان محترم شرکت داده پرداز دستیار آماده شده است.",
   "description_en": "This application is provided to deliver support services to the valued customers of Dastyar Data Processing Co.",
-  "ticket_url": "http://customers.dastyardp.ir"
+  "ticket_url": "http://customers.dastyardp.ir",
+  "app_version": "1.0.0",
+  "update_url": "http://130.185.75.234:3160/dastyarhelp/version.json",
+  "developer": "Dastyar D.P.",
+  "developer_email": "info@Dastyar.com"
 }
